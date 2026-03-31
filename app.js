@@ -324,25 +324,18 @@ function showQuestion() {
 
     content.innerHTML = html;
 
-    // Timer
+    // Timer — starts immediately for all parts
     clearInterval(questionTimer);
-    if (isListening) {
-        // Show waiting indicator; timer starts after audio
-        document.getElementById('quiz-timer').textContent = '🔊';
-        // Try auto-play (works on Android/Desktop; on iOS user must tap)
-        setTimeout(() => playQuestionAudio(), 300);
-    } else {
-        let timeLeft = 45;
+    let timeLeft = isListening ? (q.part <= 2 ? 30 : 45) : 45;
+    updateTimer(timeLeft);
+    questionTimer = setInterval(() => {
+        timeLeft--;
         updateTimer(timeLeft);
-        questionTimer = setInterval(() => {
-            timeLeft--;
-            updateTimer(timeLeft);
-            if (timeLeft <= 0) {
-                clearInterval(questionTimer);
-                selectAnswer(-1);
-            }
-        }, 1000);
-    }
+        if (timeLeft <= 0) {
+            clearInterval(questionTimer);
+            selectAnswer(-1);
+        }
+    }, 1000);
 }
 
 function updateTimer(seconds) {
@@ -374,6 +367,7 @@ function selectAnswer(index) {
     // Show feedback
     const feedback = document.getElementById('quiz-feedback');
     feedback.classList.remove('hidden');
+    setTimeout(() => feedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
     document.getElementById('feedback-icon').textContent = isCorrect ? '✅' : (index === -1 ? '⏰' : '❌');
     document.getElementById('feedback-text').textContent =
         isCorrect ? 'Bonne réponse !' : (index === -1 ? 'Temps écoulé !' : 'Mauvaise réponse');
@@ -616,25 +610,26 @@ function speakText(text, onEnd) {
     utterance.rate = 0.85;
     utterance.pitch = 1;
 
-    // Pick an English voice if available
-    const setVoiceAndSpeak = () => {
+    utterance.onstart = () => setAudioBadge(true);
+    utterance.onend = () => { setAudioBadge(false); if (onEnd) onEnd(); };
+    utterance.onerror = () => { setAudioBadge(false); if (onEnd) onEnd(); };
+
+    const doSpeak = () => {
         const voices = window.speechSynthesis.getVoices();
         const voice = voices.find(v => v.lang === 'en-US' && v.localService)
                    || voices.find(v => v.lang.startsWith('en-'));
         if (voice) utterance.voice = voice;
-
-        utterance.onstart = () => setAudioBadge(true);
-        utterance.onend = () => { setAudioBadge(false); if (onEnd) onEnd(); };
-        utterance.onerror = () => { setAudioBadge(false); if (onEnd) onEnd(); };
-
         window.speechSynthesis.speak(utterance);
     };
 
-    // Voices may not be loaded yet
-    if (window.speechSynthesis.getVoices().length > 0) {
-        setVoiceAndSpeak();
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+        doSpeak();
     } else {
-        window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+        // Fallback: try after voiceschanged, or after 500ms
+        let done = false;
+        window.speechSynthesis.onvoiceschanged = () => { if (!done) { done = true; doSpeak(); } };
+        setTimeout(() => { if (!done) { done = true; doSpeak(); } }, 500);
     }
 }
 
@@ -666,23 +661,7 @@ function playQuestionAudio() {
             btn.disabled = false;
             btn.innerHTML = '&#8635; Réécouter';
         }
-        // Start timer now that audio has finished
-        startListeningTimer(state.quiz.questions[state.quiz.current]);
     });
-}
-
-function startListeningTimer(q) {
-    clearInterval(questionTimer);
-    let timeLeft = q.part <= 2 ? 20 : 35;
-    updateTimer(timeLeft);
-    questionTimer = setInterval(() => {
-        timeLeft--;
-        updateTimer(timeLeft);
-        if (timeLeft <= 0) {
-            clearInterval(questionTimer);
-            selectAnswer(-1);
-        }
-    }, 1000);
 }
 
 // ==================== START ====================
