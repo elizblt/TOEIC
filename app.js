@@ -128,6 +128,8 @@ function goBack() {
         if (state.quiz && !state.quiz.finished) {
             if (!confirm('Quitter le quiz en cours ?')) return;
         }
+        stopSpeech();
+        clearInterval(questionTimer);
         showPage('home');
     } else {
         showPage('home');
@@ -272,6 +274,7 @@ function showQuestion() {
 
     const q = quiz.questions[quiz.current];
     const total = quiz.questions.length;
+    const isListening = q.part <= 4;
 
     document.getElementById('quiz-part-label').textContent =
         quiz.mode === 'exam' ? 'Examen - Part ' + q.part :
@@ -281,12 +284,34 @@ function showQuestion() {
     document.getElementById('quiz-progress').style.width = (quiz.current / total * 100) + '%';
     document.getElementById('quiz-feedback').classList.add('hidden');
 
+    stopSpeech();
+    audioPlayed = false;
+    currentAudioText = isListening ? getAudioText(q) : '';
+
     const content = document.getElementById('quiz-content');
     let html = '';
 
-    if (q.context) {
-        html += '<div class="question-context">' + escapeHtml(q.context) + '</div>';
+    if (isListening) {
+        html += '<div class="audio-player">';
+        html += '<button class="audio-play-btn" id="btn-play-audio" onclick="playQuestionAudio()">';
+        html += '&#9654; Écouter';
+        html += '</button>';
+        html += '<div class="audio-hint">' + escapeHtml(getAudioHint(q.part)) + '</div>';
+        html += '</div>';
     }
+
+    if (q.context) {
+        if (isListening && (q.part === 3 || q.part === 4)) {
+            // Show transcript collapsed for parts 3&4 (conversation/monologue visible)
+            html += '<details class="question-context transcript-details"><summary>Voir la transcription</summary>' + escapeHtml(q.context) + '</details>';
+        } else if (isListening && q.part === 1) {
+            // Part 1: context = photo description, always show it
+            html += '<div class="question-context">' + escapeHtml(q.context) + '</div>';
+        } else {
+            html += '<div class="question-context">' + escapeHtml(q.context) + '</div>';
+        }
+    }
+
     html += '<div class="question-text">' + escapeHtml(q.question) + '</div>';
 
     const letters = ['A', 'B', 'C', 'D'];
@@ -301,16 +326,23 @@ function showQuestion() {
 
     // Timer
     clearInterval(questionTimer);
-    let timeLeft = q.part <= 4 ? 30 : 45;
-    updateTimer(timeLeft);
-    questionTimer = setInterval(() => {
-        timeLeft--;
+    if (isListening) {
+        // Show waiting indicator; timer starts after audio
+        document.getElementById('quiz-timer').textContent = '🔊';
+        // Try auto-play (works on Android/Desktop; on iOS user must tap)
+        setTimeout(() => playQuestionAudio(), 300);
+    } else {
+        let timeLeft = 45;
         updateTimer(timeLeft);
-        if (timeLeft <= 0) {
-            clearInterval(questionTimer);
-            selectAnswer(-1); // time's up
-        }
-    }, 1000);
+        questionTimer = setInterval(() => {
+            timeLeft--;
+            updateTimer(timeLeft);
+            if (timeLeft <= 0) {
+                clearInterval(questionTimer);
+                selectAnswer(-1);
+            }
+        }, 1000);
+    }
 }
 
 function updateTimer(seconds) {
@@ -323,6 +355,7 @@ function updateTimer(seconds) {
 
 function selectAnswer(index) {
     clearInterval(questionTimer);
+    stopSpeech();
     const quiz = state.quiz;
     const q = quiz.questions[quiz.current];
     const correct = q.correct;
@@ -539,6 +572,117 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ==================== TEXT-TO-SPEECH ====================
+let currentAudioText = '';
+let audioPlayed = false;
+
+function getAudioText(q) {
+    const letters = ['A', 'B', 'C', 'D'];
+    if (q.part === 1) {
+        // Read options as in real TOEIC (user looks at context, listens to options)
+        return q.options.map((opt, i) => letters[i] + '. ' + opt).join('. ');
+    } else if (q.part === 2) {
+        // Read question then 3 responses
+        return q.question + '. ' + q.options.map((opt, i) => letters[i] + '. ' + opt).join('. ');
+    } else if (q.part === 3 || q.part === 4) {
+        // Read the dialogue/monologue then the question
+        return (q.context ? q.context + '. ' : '') + 'Question: ' + q.question;
+    }
+    return '';
+}
+
+function getAudioHint(part) {
+    const hints = {
+        1: 'Regardez le contexte et choisissez la phrase correcte',
+        2: 'Écoutez la question et choisissez la meilleure réponse',
+        3: 'Écoutez la conversation et répondez',
+        4: 'Écoutez le monologue et répondez'
+    };
+    return hints[part] || '';
+}
+
+function speakText(text, onEnd) {
+    if (!window.speechSynthesis) {
+        if (onEnd) onEnd();
+        return;
+    }
+    window.speechSynthesis.cancel();
+    currentAudioText = text;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    utterance.pitch = 1;
+
+    // Pick an English voice if available
+    const setVoiceAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const voice = voices.find(v => v.lang === 'en-US' && v.localService)
+                   || voices.find(v => v.lang.startsWith('en-'));
+        if (voice) utterance.voice = voice;
+
+        utterance.onstart = () => setAudioBadge(true);
+        utterance.onend = () => { setAudioBadge(false); if (onEnd) onEnd(); };
+        utterance.onerror = () => { setAudioBadge(false); if (onEnd) onEnd(); };
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // Voices may not be loaded yet
+    if (window.speechSynthesis.getVoices().length > 0) {
+        setVoiceAndSpeak();
+    } else {
+        window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+    }
+}
+
+function stopSpeech() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setAudioBadge(false);
+}
+
+function setAudioBadge(active) {
+    const badge = document.getElementById('audio-badge');
+    if (!badge) return;
+    if (active) {
+        badge.classList.remove('hidden');
+        document.getElementById('audio-badge-text').textContent = 'En écoute...';
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function playQuestionAudio() {
+    const btn = document.getElementById('btn-play-audio');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '&#9646;&#9646; En cours...';
+    }
+    speakText(currentAudioText, () => {
+        audioPlayed = true;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '&#8635; Réécouter';
+        }
+        // Start timer now that audio has finished
+        startListeningTimer(state.quiz.questions[state.quiz.current]);
+    });
+}
+
+function startListeningTimer(q) {
+    clearInterval(questionTimer);
+    let timeLeft = q.part <= 2 ? 20 : 35;
+    updateTimer(timeLeft);
+    questionTimer = setInterval(() => {
+        timeLeft--;
+        updateTimer(timeLeft);
+        if (timeLeft <= 0) {
+            clearInterval(questionTimer);
+            selectAnswer(-1);
+        }
+    }, 1000);
 }
 
 // ==================== START ====================

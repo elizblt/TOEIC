@@ -116,9 +116,15 @@
                     <div class="progress-fill accent" id="quiz-progress" style="width:0%"></div>
                 </div>
                 <div class="quiz-timer" id="quiz-timer">0:30</div>
+                <div id="audio-badge" class="audio-badge hidden">&#128266; <span id="audio-badge-text">En &eacute;coute...</span></div>
             </div>
             <div id="quiz-content" class="quiz-content"></div>
-            <div id="quiz-feedback" class="quiz-feedback hidden"></div>
+            <div id="quiz-feedback" class="quiz-feedback hidden">
+                <div class="feedback-icon" id="feedback-icon"></div>
+                <div class="feedback-text" id="feedback-text"></div>
+                <div class="feedback-explanation" id="feedback-explanation"></div>
+                <button class="btn btn-primary" onclick="nextQuestion()" style="width:100%;margin-top:12px">Question suivante &#8594;</button>
+            </div>
         </section>
 
         <!-- RESULTS -->
