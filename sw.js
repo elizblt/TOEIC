@@ -4,7 +4,7 @@ const ASSETS = [
   '/index.html',
   '/style.css',
   '/app.js',
-  '/questions.js',
+  '/toeic_questions.js',
   '/manifest.json',
   '/icons/icon-192.svg',
   '/icons/icon-512.svg'
