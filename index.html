@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a365d">
+    <title>TOEIC 850+</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header id="header">
+            <div class="header-left">
+                <button id="btn-back" class="icon-btn hidden" onclick="goBack()">&#8592;</button>
+                <h1 id="header-title">TOEIC 850+</h1>
+            </div>
+            <div class="header-right">
+                <span id="streak-badge" class="streak-badge" onclick="showPage('stats')">&#128293; <span id="streak-count">0</span>j</span>
+                <button id="btn-theme" class="icon-btn" onclick="toggleTheme()">&#9790;</button>
+            </div>
+        </header>
+
+        <!-- HOME -->
+        <section id="page-home" class="page active">
+            <div class="score-card">
+                <div class="score-label">Score estim&eacute;</div>
+                <div class="score-value" id="predicted-score">610</div>
+                <div class="score-target">Objectif : 850 / 990</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="score-progress" style="width:61%"></div>
+                    <div class="progress-marker" style="left:85.8%"></div>
+                </div>
+                <div class="score-details">
+                    <div class="score-sub">
+                        <span>Listening</span>
+                        <strong id="listening-score">265</strong><small>/495</small>
+                    </div>
+                    <div class="score-sub">
+                        <span>Reading</span>
+                        <strong id="reading-score">345</strong><small>/495</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="daily-goal">
+                <div class="goal-header">
+                    <span>Objectif du jour</span>
+                    <span id="daily-progress-text">0/20 questions</span>
+                </div>
+                <div class="progress-bar small" style="background:var(--border)">
+                    <div class="progress-fill accent" id="daily-progress" style="width:0%"></div>
+                </div>
+            </div>
+
+            <h2 class="section-title">Listening (Parts 1-4)</h2>
+            <div class="parts-grid">
+                <div class="part-card" onclick="startPractice(1)">
+                    <div class="part-num">Part 1</div>
+                    <div class="part-name">Photos</div>
+                    <div class="part-score" id="part1-score">--</div>
+                </div>
+                <div class="part-card" onclick="startPractice(2)">
+                    <div class="part-num">Part 2</div>
+                    <div class="part-name">Question-R&eacute;ponse</div>
+                    <div class="part-score" id="part2-score">--</div>
+                </div>
+                <div class="part-card" onclick="startPractice(3)">
+                    <div class="part-num">Part 3</div>
+                    <div class="part-name">Conversations</div>
+                    <div class="part-score" id="part3-score">--</div>
+                </div>
+                <div class="part-card" onclick="startPractice(4)">
+                    <div class="part-num">Part 4</div>
+                    <div class="part-name">Monologues</div>
+                    <div class="part-score" id="part4-score">--</div>
+                </div>
+            </div>
+
+            <h2 class="section-title">Reading (Parts 5-7)</h2>
+            <div class="parts-grid">
+                <div class="part-card" onclick="startPractice(5)">
+                    <div class="part-num">Part 5</div>
+                    <div class="part-name">Phrases incompl&egrave;tes</div>
+                    <div class="part-score" id="part5-score">--</div>
+                </div>
+                <div class="part-card" onclick="startPractice(6)">
+                    <div class="part-num">Part 6</div>
+                    <div class="part-name">Textes &agrave; compl&eacute;ter</div>
+                    <div class="part-score" id="part6-score">--</div>
+                </div>
+                <div class="part-card" onclick="startPractice(7)">
+                    <div class="part-num">Part 7</div>
+                    <div class="part-name">Compr&eacute;hension &eacute;crite</div>
+                    <div class="part-score" id="part7-score">--</div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary btn-large" onclick="startExam()">Mode Examen</button>
+                <button class="btn btn-secondary btn-large" onclick="startWeakAreas()">Points faibles</button>
+            </div>
+        </section>
+
+        <!-- QUIZ -->
+        <section id="page-quiz" class="page">
+            <div class="quiz-header">
+                <div class="quiz-info">
+                    <span id="quiz-part-label">Part 5</span>
+                    <span id="quiz-counter">1/10</span>
+                </div>
+                <div class="progress-bar small" style="background:var(--border)">
+                    <div class="progress-fill accent" id="quiz-progress" style="width:0%"></div>
+                </div>
+                <div class="quiz-timer" id="quiz-timer">0:30</div>
+            </div>
+            <div id="quiz-content" class="quiz-content"></div>
+            <div id="quiz-feedback" class="quiz-feedback hidden"></div>
+        </section>
+
+        <!-- RESULTS -->
+        <section id="page-results" class="page">
+            <div class="results-card">
+                <div style="font-size:0.9rem;color:var(--text-secondary)">R&eacute;sultat</div>
+                <div class="results-score" id="results-score">0%</div>
+                <div class="results-details" id="results-details"></div>
+                <div class="results-time" id="results-time"></div>
+            </div>
+            <div class="action-buttons" style="margin-top:16px">
+                <button class="btn btn-primary btn-large" onclick="reviewErrors()">Revoir les erreurs</button>
+                <button class="btn btn-secondary btn-large" onclick="showPage('home')">Accueil</button>
+            </div>
+        </section>
+
+        <!-- REVIEW -->
+        <section id="page-review" class="page">
+            <h2 class="section-title">Revue des erreurs</h2>
+            <div id="review-content" class="review-content"></div>
+            <div class="action-buttons">
+                <button class="btn btn-primary btn-large" onclick="showPage('home')">Accueil</button>
+            </div>
+        </section>
+
+        <!-- STATS -->
+        <section id="page-stats" class="page">
+            <h2 class="section-title">Statistiques</h2>
+            <div class="stats-grid" id="stats-content"></div>
+            <button class="btn btn-secondary btn-large" onclick="showPage('home')" style="margin-top:1rem;width:100%">Accueil</button>
+        </section>
+
+        <!-- NAV -->
+        <nav id="navbar">
+            <button class="nav-btn active" onclick="showPage('home')">
+                <span class="nav-icon">&#127968;</span>
+                <span class="nav-label">Accueil</span>
+            </button>
+            <button class="nav-btn" onclick="startWeakAreas()">
+                <span class="nav-icon">&#128170;</span>
+                <span class="nav-label">R&eacute;viser</span>
+            </button>
+            <button class="nav-btn" onclick="showPage('stats')">
+                <span class="nav-icon">&#128200;</span>
+                <span class="nav-label">Stats</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="questions.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
